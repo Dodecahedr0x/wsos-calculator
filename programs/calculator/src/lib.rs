@@ -13,9 +13,28 @@ pub mod calculator {
         Ok({})
     }
 
-    pub fn add(ctx: Context<Addition>) -> ProgramResult {
+    pub fn add(ctx: Context<BinaryOperation>) -> ProgramResult {
         let result = &mut ctx.accounts.result;
         result.value = ctx.accounts.lhs.value + ctx.accounts.rhs.value;
+        Ok(())
+    }
+
+    pub fn multiply(ctx: Context<BinaryOperation>) -> ProgramResult {
+        let result = &mut ctx.accounts.result;
+        result.value = ctx.accounts.lhs.value * ctx.accounts.rhs.value;
+        Ok(())
+    }
+
+    pub fn divide(ctx: Context<BinaryOperation>) -> ProgramResult {
+        let result = &mut ctx.accounts.result;
+        result.value = ctx.accounts.lhs.value / ctx.accounts.rhs.value;
+        Ok(())
+    }
+
+    pub fn modulo(ctx: Context<BinaryOperation>) -> ProgramResult {
+        let result = &mut ctx.accounts.result;
+        result.value = ctx.accounts.lhs.value % ctx.accounts.rhs.value;
+
         Ok(())
     }
 }
@@ -32,7 +51,7 @@ pub struct Constant<'info> {
 }
 
 #[derive(Accounts)]
-pub struct Addition<'info> {
+pub struct BinaryOperation<'info> {
     pub lhs: Account<'info, Computation>,
     pub rhs: Account<'info, Computation>,
     #[account(init, payer=payer, space=Computation::LEN)]
