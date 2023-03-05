@@ -1,48 +1,81 @@
 import * as anchor from "@project-serum/anchor";
-import { Program } from "@project-serum/anchor";
-import { Calculator } from "../target/types/calculator";
-const { SystemProgram } = anchor.web3
-import { expect } from 'chai';
 
-//Moka works using predescribed it blocks 
+import { Calculator } from "../target/types/calculator";
+import { Program } from "@project-serum/anchor";
+import { expect } from "chai";
+
+const { SystemProgram } = anchor.web3;
+
 describe("calculator", () => {
-  // Configure the client to use the local cluster.
   anchor.setProvider(anchor.AnchorProvider.env());
 
-  //Referencing the program - Abstraction that allows us to call methods of our SOL program.
   const program = anchor.workspace.Calculator as Program<Calculator>;
   const programProvider = program.provider as anchor.AnchorProvider;
 
-  //Generating a keypair for our Calculator account
-  const calculatorPair = anchor.web3.Keypair.generate();
+  it("Creating a constant", async () => {
+    const computationKeypair = anchor.web3.Keypair.generate();
+    const value = new anchor.BN(10);
 
-  const text = "Summer School Of Solana"
+    await program.methods
+      .constant(value)
+      .accounts({
+        result: computationKeypair.publicKey,
+        systemProgram: SystemProgram.programId,
+      })
+      .signers([computationKeypair])
+      .rpc();
 
-  //Creating a test block
-  it("Creating Calculator Instance", async () => {
-    //Calling create instance - Set our calculator keypair as a signer
-    await program.methods.create(text).accounts(
-      {
-          calculator: calculatorPair.publicKey,
-          user: programProvider.wallet.publicKey,
-          systemProgram: SystemProgram.programId,
-      }
-  ).signers([calculatorPair]).rpc()
-
-  //We fecth the account and read if the string is actually in the account
-  const account = await program.account.calculator.fetch(calculatorPair.publicKey)
-  expect(account.greeting).to.eql(text)
+    const account = await program.account.computation.fetch(
+      computationKeypair.publicKey
+    );
+    expect(account.value.toString()).to.eql(value.toString());
   });
 
   //Another test step - test out addition
-  it('Addition',async () => {
-    await program.methods.add(new anchor.BN(2), new anchor.BN(3))
-    .accounts({
-        calculator: calculatorPair.publicKey,
-    })
-    .rpc()
-    const account = await program.account.calculator.fetch(calculatorPair.publicKey)
-    expect(account.result).to.eql(new anchor.BN(5))
-})
+  it("Addition", async () => {
+    const lhsKeypair = anchor.web3.Keypair.generate();
+    const rhsKeypair = anchor.web3.Keypair.generate();
+    const resultKeypair = anchor.web3.Keypair.generate();
+    const lhsValue = new anchor.BN(10);
+    const rhsValue = new anchor.BN(10);
+    const value = lhsValue.add(rhsValue);
 
+    // Init terms
+    await program.methods
+      .constant(lhsValue)
+      .accounts({
+        result: lhsKeypair.publicKey,
+        payer: programProvider.publicKey,
+        systemProgram: SystemProgram.programId,
+      })
+      .signers([lhsKeypair])
+      .rpc({ skipPreflight: true, commitment: "finalized" });
+    await program.methods
+      .constant(rhsValue)
+      .accounts({
+        result: rhsKeypair.publicKey,
+        payer: programProvider.publicKey,
+        systemProgram: SystemProgram.programId,
+      })
+      .signers([rhsKeypair])
+      .rpc({ skipPreflight: true, commitment: "finalized" });
+
+    // Addition
+    await program.methods
+      .add()
+      .accounts({
+        lhs: lhsKeypair.publicKey,
+        rhs: rhsKeypair.publicKey,
+        result: resultKeypair.publicKey,
+        payer: programProvider.publicKey,
+        systemProgram: SystemProgram.programId,
+      })
+      .signers([resultKeypair])
+      .rpc({ skipPreflight: true });
+
+    const account = await program.account.computation.fetch(
+      resultKeypair.publicKey
+    );
+    expect(account.value.toString()).to.eql(value.toString());
+  });
 });
